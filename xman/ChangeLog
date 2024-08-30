@@ -1,3 +1,89 @@
+commit 4208a0947f08562a727a855ddcd4605d201c99bd
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Sep 28 17:44:13 2023 -0700
+
+    xman 1.1.6
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 9bbfa9f3509480f87bf31ae2c37f822b6d9518b3
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Jan 9 13:46:09 2022 -0800
+
+    Fix spelling/wording issues
+    
+    Found by using:
+        codespell --builtin clear,rare,usage,informal,code,names
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 2b7825b2ab93b5ac41d295d0fa0c2b081e624cb7
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Feb 18 12:44:40 2023 -0800
+
+    Install WM_DELETE_WINDOW handler for search window
+    
+    Allows using window manager close icon to close search window without
+    killing the entire program.
+    
+    Fixes: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=720266
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d6c728b4d7c86fb486cd9f18c749f3b61ff8fb63
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Feb 4 15:10:45 2023 -0800
+
+    Add -version option
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 73aecaafd3e4b80c57a2549e399b7f0b769bcf5e
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 20 18:58:48 2022 -0800
+
+    configure: Use AC_SYS_LARGEFILE to enable large file support
+    
+    While xman can't handle files more than 2gb in size, due to libXt
+    API limits, it can handle files with large inodes. (Not that any
+    man page should ever be more than even 1mb in size in reality.)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 204e4512a11cac5e906a0c8f422ef7e51fa559af
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Jul 28 17:30:21 2022 -0700
+
+    gitlab CI: stop requiring Signed-off-by in commits
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 9c3b7728096667404ea19c5fbddec5cff29e8bbe
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Apr 2 12:48:45 2022 -0700
+
+    man page: remove out-of-date reference to X(7)
+    
+    The X(7) man page doesn't list any license information as this had claimed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 5ac741677cc861796b4c4fae0d03eb009a67c722
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 7 12:26:47 2021 -0800
+
+    Build xz tarballs instead of bzip2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 60d96fb66acea82724104591a77b3cfcca838c9b
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 7 12:26:44 2021 -0800
+
+    gitlab CI: add a basic build test
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
 commit aed0ca367a69a7defd29bbbe357914b1b45ca4b9
 Author: Alan Coopersmith <alan.coopersmith@oracle.com>
 Date:   Sun Jul 14 13:10:32 2019 -0700
