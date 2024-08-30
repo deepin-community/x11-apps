@@ -1,6 +1,7 @@
 /*
 
 Copyright (c) 1991  X Consortium
+Copyright (c) 2023  q3k
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -48,54 +49,55 @@ from the X Consortium.
 # include <X11/extensions/shape.h>
 # include <X11/Xlibint.h>
 # include <stdlib.h>
-
-#if (defined(SVR4) || defined(SYSV) && defined(i386))
-extern double hypot(double, double);
-#endif
+# include <X11/extensions/XInput2.h>
+# include <assert.h>
 
 #define offset(field) XtOffsetOf(EyesRec, eyes.field)
 #define goffset(field) XtOffsetOf(WidgetRec, core.field)
 
 static XtResource resources[] = {
-    {XtNwidth, XtCWidth, XtRDimension, sizeof(Dimension),
+    {(char *) XtNwidth, (char *) XtCWidth, XtRDimension, sizeof(Dimension),
 	goffset(width), XtRImmediate, (XtPointer) 150},
-    {XtNheight, XtCHeight, XtRDimension, sizeof(Dimension),
+    {(char *) XtNheight, (char *) XtCHeight, XtRDimension, sizeof(Dimension),
 	goffset(height), XtRImmediate, (XtPointer) 100},
-    {XtNforeground, XtCForeground, XtRPixel, sizeof(Pixel),
-        offset(pixel[PART_PUPIL]), XtRString, XtDefaultForeground},
-    {XtNoutline, XtCForeground, XtRPixel, sizeof(Pixel),
-        offset(pixel[PART_OUTLINE]), XtRString, XtDefaultForeground},
-    {XtNcenterColor, XtCBackground, XtRPixel, sizeof (Pixel),
-	offset(pixel[PART_CENTER]), XtRString, XtDefaultBackground},
-    {XtNreverseVideo, XtCReverseVideo, XtRBoolean, sizeof (Boolean),
+    {(char *) XtNforeground, (char *) XtCForeground, XtRPixel, sizeof(Pixel),
+        offset(pixel[PART_PUPIL]), XtRString, (char *) XtDefaultForeground},
+    {(char *) XtNbackgroundPixmap, (char *) XtCPixmap, XtRPixmap, sizeof(Pixmap),
+     XtOffsetOf(CoreRec,core.background_pixmap),
+     XtRImmediate, (XtPointer)None},
+    {(char *) XtNoutline, (char *) XtCForeground, XtRPixel, sizeof(Pixel),
+        offset(pixel[PART_OUTLINE]), XtRString, (char *) XtDefaultForeground},
+    {(char *) XtNcenterColor, (char *) XtCBackground, XtRPixel, sizeof (Pixel),
+	offset(pixel[PART_CENTER]), XtRString, (char *) XtDefaultBackground},
+    {(char *) XtNreverseVideo, (char *) XtCReverseVideo, XtRBoolean, sizeof (Boolean),
 	offset (reverse_video), XtRImmediate, (XtPointer) FALSE},
-    {XtNbackingStore, XtCBackingStore, XtRBackingStore, sizeof (int),
-    	offset (backing_store), XtRString, "default"},
-    {XtNshapeWindow, XtCShapeWindow, XtRBoolean, sizeof (Boolean),
+    {(char *) XtNbackingStore, (char *) XtCBackingStore, (char *) XtRBackingStore, sizeof (int),
+    	offset (backing_store), XtRString, (char *) "default"},
+    {(char *) XtNshapeWindow, (char *) XtCShapeWindow, XtRBoolean, sizeof (Boolean),
 	offset (shape_window), XtRImmediate, (XtPointer) TRUE},
 #ifdef XRENDER
-    {XtNrender, XtCBoolean, XtRBoolean, sizeof(Boolean),
+    {(char *) XtNrender, (char *) XtCBoolean, XtRBoolean, sizeof(Boolean),
 	offset(render), XtRImmediate, (XtPointer) TRUE },
 #endif
-    {XtNdistance, XtCBoolean, XtRBoolean, sizeof(Boolean),
+#ifdef PRESENT
+    {(char *) XtNpresent, (char *) XtCBoolean, XtRBoolean, sizeof(Boolean),
+     offset(present), XtRImmediate, (XtPointer) TRUE },
+#endif
+    {(char *) XtNdistance, (char *) XtCBoolean, XtRBoolean, sizeof(Boolean),
 	offset(distance), XtRImmediate, (XtPointer) FALSE },
+    {(char *) XtNbiblicallyAccurate, (char *) XtCBoolean, XtRBoolean, sizeof(Boolean),
+	offset(biblically_accurate), XtRImmediate, (XtPointer) FALSE },
 };
 
 #undef offset
 #undef goffset
 
-# define EYE_X(n)	((n) * 2.0)
-# define EYE_Y(n)	(0.0)
 # define EYE_OFFSET	(0.1)	/* padding between eyes */
 # define EYE_THICK	(0.175)	/* thickness of eye rim */
 # define BALL_DIAM	(0.3)
 # define BALL_PAD	(0.175)
 # define EYE_DIAM	(2.0 - (EYE_THICK + EYE_OFFSET) * 2)
 # define BALL_DIST	((EYE_DIAM - BALL_DIAM) / 2.0 - BALL_PAD)
-# define W_MIN_X	(-1.0 + EYE_OFFSET)
-# define W_MAX_X	(3.0 - EYE_OFFSET)
-# define W_MIN_Y	(-1.0 + EYE_OFFSET)
-# define W_MAX_Y	(1.0 - EYE_OFFSET)
 
 # define TPOINT_NONE	(-1000)	/* special value meaning "not yet set" */
 # define TPointEqual(a, b)  ((a).x == (b).x && (a).y == (b).y)
@@ -105,6 +107,69 @@ static XtResource resources[] = {
 
 static int delays[] = { 50, 100, 200, 400, 0 };
 
+static EyeLayout layout_standard[] = {
+	{ .x = 0.0, .y = 0.0, },
+	{ .x = 2.0, .y = 0.0, },
+};
+
+static EyeLayout layout_biblical[] = {
+	{ .x = 0.0+0.75, .y = 0.0, },
+	{ .x = 1.5+0.75, .y = 0.0, },
+	{ .x = 3.0+0.75, .y = 0.0, },
+
+	{ .x = 0.0+0.00, .y = 1.4, },
+	{ .x = 1.5+0.00, .y = 1.4, },
+	{ .x = 3.0+0.00, .y = 1.4, },
+	{ .x = 4.5+0.00, .y = 1.4, },
+
+	{ .x = 0.0+0.75, .y = 2.8, },
+	{ .x = 1.5+0.75, .y = 2.8, },
+	{ .x = 3.0+0.75, .y = 2.8, },
+};
+
+static EyeConfiguration *EyesConfigure(Boolean biblically_accurate)
+{
+	EyeConfiguration *c = calloc(sizeof(EyeConfiguration), 1);
+	assert(c != NULL);
+
+	if (biblically_accurate) {
+		c->eyes = layout_biblical;
+		c->count = sizeof(layout_biblical) / sizeof(EyeLayout);
+	} else {
+		c->eyes = layout_standard;
+		c->count = sizeof(layout_standard) / sizeof(EyeLayout);
+	}
+
+	// Calculate the bounding box of the eyes.
+	c->w_min_x = c->eyes[0].x;
+	c->w_max_x = c->eyes[0].x;
+	c->w_min_y = c->eyes[0].y;
+	c->w_max_y = c->eyes[0].y;
+
+	for (int i = 0; i < c->count; i++) {
+		EyeLayout *l = &c->eyes[i];
+		if (l->x > c->w_max_x) {
+			c->w_max_x = l->x;
+		}
+		if (l->x < c->w_min_x) {
+			c->w_min_x = l->x;
+		}
+		if (l->y > c->w_max_y) {
+			c->w_max_y = l->y;
+		}
+		if (l->y < c->w_min_y) {
+			c->w_min_y = l->y;
+		}
+	}
+
+	// Add half size of eye (2.0) minus padding to each edge.
+	c->w_min_x -= (1.0 - EYE_OFFSET);
+	c->w_max_x += (1.0 - EYE_OFFSET);
+	c->w_min_y -= (1.0 - EYE_OFFSET);
+	c->w_max_y += (1.0 - EYE_OFFSET);
+	return c;
+}
+
 static void ClassInitialize(void)
 {
     XtAddConverter( XtRString, XtRBackingStore, XmuCvtStringToBackingStore,
@@ -112,6 +177,218 @@ static void ClassInitialize(void)
 }
 
 WidgetClass eyesWidgetClass = (WidgetClass) &eyesClassRec;
+
+#ifdef PRESENT
+static void CheckPresent(EyesWidget w) {
+    const xcb_query_extension_reply_t 	    *xfixes_ext_reply;
+    const xcb_query_extension_reply_t 	    *damage_ext_reply;
+    const xcb_query_extension_reply_t 	    *present_ext_reply;
+    xcb_xfixes_query_version_cookie_t       xfixes_cookie;
+    xcb_xfixes_query_version_reply_t        *xfixes_reply;
+    xcb_damage_query_version_cookie_t       damage_cookie;
+    xcb_damage_query_version_reply_t        *damage_reply;
+    xcb_present_query_version_cookie_t      present_cookie;
+    xcb_present_query_version_reply_t       *present_reply;
+
+    if (!w->eyes.present)
+	return;
+
+    xcb_prefetch_extension_data(xt_xcb(w), &xcb_xfixes_id);
+    xcb_prefetch_extension_data(xt_xcb(w), &xcb_damage_id);
+    xcb_prefetch_extension_data(xt_xcb(w), &xcb_present_id);
+
+    xfixes_ext_reply = xcb_get_extension_data(xt_xcb(w), &xcb_xfixes_id);
+    damage_ext_reply = xcb_get_extension_data(xt_xcb(w), &xcb_damage_id);
+    present_ext_reply = xcb_get_extension_data(xt_xcb(w), &xcb_present_id);
+    if (xfixes_ext_reply == NULL || !xfixes_ext_reply->present
+	|| damage_ext_reply == NULL || !damage_ext_reply->present
+	|| present_ext_reply == NULL || !present_ext_reply->present)
+    {
+	w->eyes.present = FALSE;
+    }
+
+    if (!w->eyes.present)
+	return;
+
+    /* Now tell the server which versions of the extensions we support */
+    xfixes_cookie = xcb_xfixes_query_version(xt_xcb(w),
+					     XCB_XFIXES_MAJOR_VERSION,
+					     XCB_XFIXES_MINOR_VERSION);
+
+    damage_cookie = xcb_damage_query_version(xt_xcb(w),
+					     XCB_DAMAGE_MAJOR_VERSION,
+					     XCB_DAMAGE_MINOR_VERSION);
+
+    present_cookie = xcb_present_query_version(xt_xcb(w),
+					       XCB_PRESENT_MAJOR_VERSION,
+					       XCB_PRESENT_MINOR_VERSION);
+
+    xfixes_reply = xcb_xfixes_query_version_reply(xt_xcb(w),
+						  xfixes_cookie,
+						  NULL);
+    free(xfixes_reply);
+
+    damage_reply = xcb_damage_query_version_reply(xt_xcb(w),
+						  damage_cookie,
+						  NULL);
+    free(damage_reply);
+
+    present_reply = xcb_present_query_version_reply(xt_xcb(w),
+						    present_cookie,
+						    NULL);
+    free(present_reply);
+}
+
+static void MakePresentData(EyesWidget w) {
+
+    if (!w->eyes.present)
+        return;
+
+    if (!w->eyes.back_buffer) {
+        xcb_create_pixmap(xt_xcb(w),
+                          w->core.depth,
+                          w->eyes.back_buffer = xcb_generate_id(xt_xcb(w)),
+                          XtWindow(w),
+                          w->core.width,
+                          w->core.height);
+    }
+    if (!w->eyes.back_damage) {
+        xcb_damage_create(xt_xcb(w),
+                          w->eyes.back_damage = xcb_generate_id(xt_xcb(w)),
+                          w->eyes.back_buffer,
+                          XCB_DAMAGE_REPORT_LEVEL_NON_EMPTY);
+        xcb_xfixes_create_region(xt_xcb(w),
+                                 w->eyes.back_region = xcb_generate_id(xt_xcb(w)),
+                                 0, NULL);
+    }
+}
+
+static void UpdatePresent(EyesWidget w) {
+    if (w->eyes.back_buffer) {
+        xcb_damage_subtract(xt_xcb(w),
+                            w->eyes.back_damage,
+                            None,
+                            w->eyes.back_region);
+        xcb_present_pixmap(xt_xcb(w),
+                           XtWindow(w),
+                           w->eyes.back_buffer,
+                           0,
+                           None,
+                           w->eyes.back_region,
+                           0, 0,
+                           None,
+			   None,
+			   None,
+			   0,
+			   0, 1, 0,
+			   0, NULL);
+    }
+}
+
+#endif
+
+#ifdef PRESENT
+#define EyesDrawable(w) (w->eyes.back_buffer ? w->eyes.back_buffer : XtWindow(w))
+#else
+#define EyesDrawable(w) XtWindow(w)
+#endif
+
+static void draw_it_core(EyesWidget w);
+
+static void EyesGeneric(Widget w, XtPointer closure, XEvent *event, Boolean *continue_to_dispatch)
+{
+        draw_it_core((EyesWidget) w);
+}
+
+struct root_listen_list {
+    struct root_listen_list *next;
+    Widget      widget;
+};
+
+static struct root_listen_list *root_listen_list;
+
+static Boolean xi2_dispatcher(XEvent *event) {
+    struct root_listen_list *rll;
+    Boolean was_dispatched = False;
+
+    for (rll = root_listen_list; rll; rll = rll->next) {
+        if (XtDisplay(rll->widget) == event->xany.display) {
+            XtDispatchEventToWidget(rll->widget, event);
+            was_dispatched = True;
+        }
+    }
+    return was_dispatched;
+}
+
+static void select_xi2_events(Widget w)
+{
+    XIEventMask evmasks[1];
+    unsigned char mask1[(XI_LASTEVENT + 7)/8];
+
+    memset(mask1, 0, sizeof(mask1));
+
+    /* select for button and key events from all master devices */
+    XISetMask(mask1, XI_RawMotion);
+
+    evmasks[0].deviceid = XIAllMasterDevices;
+    evmasks[0].mask_len = sizeof(mask1);
+    evmasks[0].mask = mask1;
+
+    XISelectEvents(XtDisplay(w),
+                   RootWindowOfScreen(XtScreen(w)),
+                   evmasks, 1);
+    XtSetEventDispatcher(XtDisplay(w),
+                         GenericEvent,
+                         xi2_dispatcher);
+}
+
+static Boolean xi2_add_root_listener(Widget widget)
+{
+    struct root_listen_list *rll = malloc (sizeof (struct root_listen_list));
+
+    if (!rll)
+        return False;
+    rll->widget = widget;
+    rll->next = root_listen_list;
+    if (!root_listen_list)
+            select_xi2_events(widget);
+    root_listen_list = rll;
+    XtInsertEventTypeHandler(widget, GenericEvent, NULL, EyesGeneric, NULL, XtListHead);
+    return True;
+}
+
+static void xi2_remove_root_listener(Widget widget)
+{
+    struct root_listen_list *rll, **prev;
+
+    for (prev = &root_listen_list; (rll = *prev) != NULL; prev = &rll->next) {
+        if (rll->widget == widget) {
+            *prev = rll->next;
+            free(rll);
+            break;
+        }
+    }
+}
+
+/* Return 1 if XI2 is available, 0 otherwise */
+static int has_xi2(Display *dpy)
+{
+    int major, minor;
+    int rc;
+
+    /* We need at least XI 2.0 */
+    major = 2;
+    minor = 0;
+
+    rc = XIQueryVersion(dpy, &major, &minor);
+    if (rc == BadRequest) {
+	return 0;
+    } else if (rc != Success) {
+        return 0;
+    }
+    return 1;
+}
+
 
 /* ARGSUSED */
 static void Initialize (
@@ -127,6 +404,17 @@ static void Initialize (
 #ifdef XRENDER
     enum EyesPart i;
 #endif
+
+    EyeConfiguration *config = EyesConfigure(w->eyes.biblically_accurate);
+    TPoint *pupils = calloc(sizeof(TPoint), config->count);
+    assert(pupils != NULL);
+    for (int j = 0; j < config->count; j++) {
+        pupils[j].x = TPOINT_NONE;
+        pupils[j].y = TPOINT_NONE;
+    }
+    w->eyes.configuration = config;
+    w->eyes.pupils = pupils;
+
 
     /*
      * set the colors if reverse video; these are the colors used:
@@ -170,9 +458,6 @@ static void Initialize (
     /* wait for Realize to add the timeout */
     w->eyes.interval_id = 0;
 
-    w->eyes.pupil[0].x = w->eyes.pupil[1].x = TPOINT_NONE;
-    w->eyes.pupil[0].y = w->eyes.pupil[1].y = TPOINT_NONE;
-
     w->eyes.mouse.x = w->eyes.mouse.y = TPOINT_NONE;
 
     if (w->eyes.shape_window && !XShapeQueryExtension (XtDisplay (w),
@@ -181,6 +466,8 @@ static void Initialize (
 	w->eyes.shape_window = False;
     w->eyes.shape_mask = 0;
     w->eyes.gc[PART_SHAPE] = NULL;
+
+    w->eyes.has_xi2 = has_xi2(XtDisplay(w));
 
 #ifdef XRENDER
     for (i = 0; i < PART_SHAPE; i ++) {
@@ -196,6 +483,11 @@ static void Initialize (
 	rc.alpha = -1;
 	w->eyes.fill[i] = XRenderCreateSolidFill(XtDisplay (w), &rc);
     }
+#endif
+#ifdef PRESENT
+    w->eyes.back_buffer = None;
+    w->eyes.back_damage = None;
+    CheckPresent(w);
 #endif
 }
 
@@ -213,7 +505,7 @@ drawEllipse(EyesWidget w, enum EyesPart part,
     Trectangle(&w->eyes.t, &tpos, &pos);
 
     if (part == PART_CLEAR) {
-	XFillRectangle(XtDisplay(w), XtWindow(w),
+	XFillRectangle(XtDisplay(w), EyesDrawable(w),
 		       w->eyes.gc[PART_CENTER],
 		       (int)pos.x, (int)pos.y,
 		       (int)pos.width+2, (int)pos.height+2);
@@ -275,7 +567,7 @@ drawEllipse(EyesWidget w, enum EyesPart part,
 		    TPOINT_NONE, TPOINT_NONE, diam);
 
     XFillArc(XtDisplay(w),
-	     part == PART_SHAPE ? w->eyes.shape_mask : XtWindow(w),
+	     part == PART_SHAPE ? w->eyes.shape_mask : EyesDrawable(w),
 	     w->eyes.gc[part],
 	     (int)(pos.x + 0.5), (int)(pos.y + 0.5),
 	     (int)(pos.width + 0.0), (int)(pos.height + 0.0),
@@ -288,19 +580,20 @@ eyeLiner(EyesWidget	w,
 	 Boolean	draw,
 	 int		num)
 {
+    EyeLayout *l = &w->eyes.configuration->eyes[num];
     drawEllipse(w, draw ? PART_OUTLINE : PART_SHAPE,
-		EYE_X(num), EYE_Y(num),
+		l->x, l->y,
 		TPOINT_NONE, TPOINT_NONE,
 		EYE_DIAM + 2.0*EYE_THICK);
     if (draw) {
-	drawEllipse(w, PART_CENTER, EYE_X(num), EYE_Y(num),
+	drawEllipse(w, PART_CENTER, l->x, l->y,
 		    TPOINT_NONE, TPOINT_NONE,
 		    EYE_DIAM);
     }
 }
 
 static TPoint computePupil (
-    int		num,
+    EyeLayout *layout,
     TPoint	mouse,
     const TRectangle *screen)
 {
@@ -311,8 +604,8 @@ static TPoint computePupil (
 	double	cosa, sina;
 	TPoint	ret;
 
-	cx = EYE_X(num); dx = mouse.x - cx;
-	cy = EYE_Y(num); dy = mouse.y - cy;
+	cx = layout->x; dx = mouse.x - cx;
+	cy = layout->y; dy = mouse.y - cy;
 	if (dx == 0 && dy == 0);
 	else {
 		angle = atan2 ((double) dy, (double) dx);
@@ -371,7 +664,7 @@ static TPoint computePupil (
 static void computePupils (
     EyesWidget	w,
     TPoint	mouse,
-    TPoint	pupils[2])
+    TPoint  *pupils)
 {
     TRectangle screen, *sp = NULL;
     if (w->eyes.distance) {
@@ -387,8 +680,9 @@ static void computePupils (
 				&w->eyes.t);
 	sp = &screen;
     }
-    pupils[0] = computePupil (0, mouse, sp);
-    pupils[1] = computePupil (1, mouse, sp);
+    for (int i = 0; i < w->eyes.configuration->count; i++) {
+        pupils[i] = computePupil(&w->eyes.configuration->eyes[i], mouse, sp);
+    }
 }
 
 static void
@@ -397,8 +691,9 @@ eyeBall(EyesWidget	w,
 	TPoint	*old,
 	int	num)
 {
+    //printf("eyeBall(_, %d, %p, %d)\n", draw, old, num);
     drawEllipse(w, draw ? PART_PUPIL : PART_CLEAR,
-		w->eyes.pupil[num].x, w->eyes.pupil[num].y,
+		w->eyes.pupils[num].x, w->eyes.pupils[num].y,
 		old ? old->x : TPOINT_NONE, old ? old->y : TPOINT_NONE,
 		BALL_DIAM);
 }
@@ -406,11 +701,19 @@ eyeBall(EyesWidget	w,
 static void repaint_window (EyesWidget w)
 {
 	if (XtIsRealized ((Widget) w)) {
-		eyeLiner (w, TRUE, 0);
-		eyeLiner (w, TRUE, 1);
-		computePupils (w, w->eyes.mouse, w->eyes.pupil);
-		eyeBall (w, TRUE, NULL, 0);
-		eyeBall (w, TRUE, NULL, 1);
+#ifdef PRESENT
+                MakePresentData(w);
+#endif
+		for (int i = 0; i < w->eyes.configuration->count; i++) {
+			eyeLiner (w, TRUE, i);
+		}
+		computePupils (w, w->eyes.mouse, w->eyes.pupils);
+		for (int i = 0; i < w->eyes.configuration->count; i++) {
+			eyeBall (w, TRUE, NULL, i);
+		}
+#ifdef PRESENT
+                UpdatePresent(w);
+#endif
 	}
 }
 
@@ -419,17 +722,17 @@ drawEye(EyesWidget w, TPoint newpupil, int num)
 {
     XPoint		xnewpupil, xpupil;
 
-    xpupil.x = Xx(w->eyes.pupil[num].x, w->eyes.pupil[num].y, &w->eyes.t);
-    xpupil.y = Xy(w->eyes.pupil[num].x, w->eyes.pupil[num].y, &w->eyes.t);
+    xpupil.x = Xx(w->eyes.pupils[num].x, w->eyes.pupils[num].y, &w->eyes.t);
+    xpupil.y = Xy(w->eyes.pupils[num].x, w->eyes.pupils[num].y, &w->eyes.t);
     xnewpupil.x = Xx(newpupil.x, newpupil.y, &w->eyes.t);
     xnewpupil.y = Xy(newpupil.x, newpupil.y, &w->eyes.t);
     if (
 #ifdef XRENDER
-	w->eyes.picture ? !TPointEqual(w->eyes.pupil[num], newpupil) :
+	w->eyes.picture ? !TPointEqual(w->eyes.pupils[num], newpupil) :
 #endif
 	!XPointEqual(xpupil, xnewpupil)) {
-	TPoint oldpupil = w->eyes.pupil[num];
-	w->eyes.pupil[num] = newpupil;
+	TPoint oldpupil = w->eyes.pupils[num];
+	w->eyes.pupils[num] = newpupil;
 	eyeBall (w, TRUE, &oldpupil, num);
     }
 }
@@ -437,21 +740,27 @@ drawEye(EyesWidget w, TPoint newpupil, int num)
 static void
 drawEyes(EyesWidget w, TPoint mouse)
 {
-    TPoint		newpupil[2];
     int			num;
+    TPoint newpupils[w->eyes.configuration->count];
 
+#ifdef PRESENT
+    MakePresentData(w);
+#endif
     if (TPointEqual (mouse, w->eyes.mouse)) {
 	if (delays[w->eyes.update + 1] != 0)
 	    ++w->eyes.update;
 	return;
     }
-    computePupils (w, mouse, newpupil);
-    for (num = 0; num < 2; num ++) {
-	drawEye(w, newpupil[num], num);
+    computePupils (w, mouse, newpupils);
+    for (num = 0; num < w->eyes.configuration->count; num++) {
+        drawEye(w, newpupils[num], num);
     }
 
     w->eyes.mouse = mouse;
     w->eyes.update = 0;
+#ifdef PRESENT
+    UpdatePresent(w);
+#endif
 }
 
 static void draw_it_core(EyesWidget w)
@@ -482,9 +791,11 @@ static void draw_it (
 	if (XtIsRealized((Widget)w)) {
 	        draw_it_core(w);
 	}
-	w->eyes.interval_id =
-		XtAppAddTimeOut(XtWidgetToApplicationContext((Widget) w),
-				delays[w->eyes.update], draw_it, (XtPointer)w);
+        if (!w->eyes.has_xi2) {
+                w->eyes.interval_id =
+                        XtAppAddTimeOut(XtWidgetToApplicationContext((Widget) w),
+                                        delays[w->eyes.update], draw_it, (XtPointer)w);
+        }
 } /* draw_it */
 
 static void Resize (Widget gw)
@@ -497,12 +808,27 @@ static void Resize (Widget gw)
 
     if (XtIsRealized (gw))
     {
-	XClearWindow (dpy, XtWindow (w));
     	SetTransform (&w->eyes.t,
 		    	0, w->core.width,
  		    	w->core.height, 0,
-		    	W_MIN_X, W_MAX_X,
-		    	W_MIN_Y, W_MAX_Y);
+		    	w->eyes.configuration->w_min_x,
+		    	w->eyes.configuration->w_max_x,
+		    	w->eyes.configuration->w_min_y,
+		    	w->eyes.configuration->w_max_y);
+#ifdef PRESENT
+        if (w->eyes.back_buffer) {
+                xcb_free_pixmap(xt_xcb(w),
+                                w->eyes.back_buffer);
+                w->eyes.back_buffer = None;
+                xcb_damage_destroy(xt_xcb(w),
+                                   w->eyes.back_damage);
+                w->eyes.back_damage = None;
+        }
+        MakePresentData(w);
+#endif
+        if (EyesDrawable(w) == XtWindow(w))
+                XClearWindow (dpy, XtWindow (w));
+
 #ifdef XRENDER
 	if (w->eyes.picture) {
 	    XRenderFreePicture(dpy, w->eyes.picture);
@@ -519,8 +845,9 @@ static void Resize (Widget gw)
 	    XFillRectangle (dpy, w->eyes.shape_mask, w->eyes.gc[PART_SHAPE],
 			    0, 0, w->core.width, w->core.height);
 	    XSetForeground (dpy, w->eyes.gc[PART_SHAPE], 1);
-	    eyeLiner (w, FALSE, 0);
-	    eyeLiner (w, FALSE, 1);
+	    for (int i = 0; i < w->eyes.configuration->count; i++) {
+	        eyeLiner (w, FALSE, i);
+	    }
 	    x = y = 0;
 	    for (parent = (Widget) w; XtParent (parent); parent = XtParent (parent)) {
 	    	x += parent->core.x + parent->core.border_width;
@@ -537,7 +864,7 @@ static void Resize (Widget gw)
 	    pf = XRenderFindVisualFormat(dpy,
 					 DefaultVisualOfScreen(w->core.screen));
 	    if (pf)
-		w->eyes.picture = XRenderCreatePicture(dpy, XtWindow (w),
+		w->eyes.picture = XRenderCreatePicture(dpy, EyesDrawable (w),
 						       pf, 0, &pa);
 	}
 #endif
@@ -558,9 +885,13 @@ static void Realize (
     XtCreateWindow( gw, (unsigned)InputOutput, (Visual *)CopyFromParent,
 		     *valueMask, attrs );
     Resize (gw);
-    w->eyes.interval_id =
-	XtAppAddTimeOut(XtWidgetToApplicationContext(gw),
-			delays[w->eyes.update], draw_it, (XtPointer)gw);
+
+    if (w->eyes.has_xi2)
+            xi2_add_root_listener(gw);
+    else
+            w->eyes.interval_id =
+                    XtAppAddTimeOut(XtWidgetToApplicationContext(gw),
+                                    delays[w->eyes.update], draw_it, (XtPointer)gw);
 }
 
 static void Destroy (Widget gw)
@@ -572,6 +903,7 @@ static void Destroy (Widget gw)
 	XtRemoveTimeOut (w->eyes.interval_id);
      for (i = 0; i < PART_MAX; i ++)
 	     XtReleaseGC(gw, w->eyes.gc[i]);
+     xi2_remove_root_listener(gw);
 #ifdef XRENDER
      if (w->eyes.picture)
 	     XRenderFreePicture (XtDisplay(w), w->eyes.picture);
@@ -587,10 +919,10 @@ static void Redisplay(
     EyesWidget	w;
 
     w = (EyesWidget) gw;
-    w->eyes.pupil[0].x = TPOINT_NONE;
-    w->eyes.pupil[0].y = TPOINT_NONE;
-    w->eyes.pupil[1].x = TPOINT_NONE;
-    w->eyes.pupil[1].y = TPOINT_NONE;
+    for (int i = 0; i < w->eyes.configuration->count; i++) {
+        w->eyes.pupils[i].x = TPOINT_NONE;
+        w->eyes.pupils[i].y = TPOINT_NONE;
+    }
     (void) repaint_window ((EyesWidget)gw);
 }
 
@@ -608,7 +940,7 @@ static Boolean SetValues (
 EyesClassRec eyesClassRec = {
     { /* core fields */
     /* superclass		*/	&widgetClassRec,
-    /* class_name		*/	"Eyes",
+    /* class_name		*/	(char *) "Eyes",
     /* size			*/	sizeof(EyesRec),
     /* class_initialize		*/	ClassInitialize,
     /* class_part_initialize	*/	NULL,

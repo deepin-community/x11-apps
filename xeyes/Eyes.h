@@ -34,6 +34,9 @@
 
 #define XtNrender	"render"
 #define XtNdistance	"distance"
+#define XtNbiblicallyAccurate	"biblicallyAccurate"
+
+#define XtNpresent      "present"
 
 enum EyesPart {
 	PART_CLEAR = -1,

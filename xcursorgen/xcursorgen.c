@@ -30,6 +30,7 @@
 #include <ctype.h>
 #include <errno.h>
 
+#include <X11/Xfuncproto.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xcursor/Xcursor.h>
@@ -149,7 +150,8 @@ read_config_file(const char *config, struct flist **list)
 #define div_255(x) (((x) + 0x80 + (((x) + 0x80) >> 8)) >> 8)
 
 static void
-premultiply_data(png_structp png, png_row_infop row_info, png_bytep data)
+premultiply_data(png_structp png _X_UNUSED, png_row_infop row_info,
+                 png_bytep data)
 {
     png_size_t i;
 
@@ -161,10 +163,11 @@ premultiply_data(png_structp png, png_row_infop row_info, png_bytep data)
         unsigned char  alpha = base[3];
         XcursorPixel   p;
 
-        red     = div_255((unsigned) red * (unsigned) alpha);
-        green   = div_255((unsigned) green * (unsigned) alpha);
-        blue    = div_255((unsigned) blue * (unsigned) alpha);
-        p       = (alpha << 24) | (red << 16) | (green << 8) | (blue << 0);
+        red     = (unsigned char) div_255((unsigned) red * (unsigned) alpha);
+        green   = (unsigned char) div_255((unsigned) green * (unsigned) alpha);
+        blue    = (unsigned char) div_255((unsigned) blue * (unsigned) alpha);
+        p       = ((unsigned int) alpha << 24) | ((unsigned int) red << 16) |
+                  ((unsigned int) green << 8) | ((unsigned int) blue << 0);
         memcpy(base, &p, sizeof(XcursorPixel));
     }
 }
@@ -264,7 +267,7 @@ load_image(struct flist *list, const char *prefix)
 
     png_read_update_info(png, info);
 
-    image = XcursorImageCreate(width, height);
+    image = XcursorImageCreate((int) width, (int) height);
     if (image == NULL) {
         fprintf (stderr,
                  "%s: XcursorImageCreate() failed to create %u x %u image\n"
@@ -275,10 +278,10 @@ load_image(struct flist *list, const char *prefix)
         return NULL;
     }
 
-    image->size = list->size;
-    image->xhot = list->xhot;
-    image->yhot = list->yhot;
-    image->delay = list->delay;
+    image->size = (XcursorDim) list->size;
+    image->xhot = (XcursorDim) list->xhot;
+    image->yhot = (XcursorDim) list->yhot;
+    image->delay = (XcursorUInt) list->delay;
 
     rows = malloc(sizeof(png_bytep) * height);
     if (rows == NULL) {
@@ -358,8 +361,8 @@ check_image(char *image)
     }
     else {
         XImage ximage = {
-            .width 		= width,
-            .height             = height,
+            .width              = (int) width,
+            .height             = (int) height,
             .depth              = 1,
             .bits_per_pixel     = 1,
             .xoffset            = 0,

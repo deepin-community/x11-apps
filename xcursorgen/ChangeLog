@@ -1,3 +1,114 @@
+commit 21303eac3b67f39c24036cdd65860a223e779e5b
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Dec 3 12:17:05 2022 -0800
+
+    xcursorgen 1.0.8
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 281ebaaaf43139f7876033af54d088d8e93264b7
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Nov 12 12:18:34 2022 -0800
+
+    Resolve -Wsign-conversion warnings from clang
+    
+    xcursorgen.c:169:62: warning: implicit conversion changes signedness:
+      'int' to 'XcursorPixel' (aka 'unsigned int') [-Wsign-conversion]
+            p       = (alpha << 24) | (red << 16) | (green << 8) | (blue << 0);
+                    ~ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~~~~~~~~~~
+    xcursorgen.c:269:39: warning: implicit conversion changes signedness:
+      'png_uint_32' (aka 'unsigned int') to 'int' [-Wsign-conversion]
+        image = XcursorImageCreate(width, height);
+                ~~~~~~~~~~~~~~~~~~        ^~~~~~
+    xcursorgen.c:269:32: warning: implicit conversion changes signedness:
+      'png_uint_32' (aka 'unsigned int') to 'int' [-Wsign-conversion]
+        image = XcursorImageCreate(width, height);
+                ~~~~~~~~~~~~~~~~~~ ^~~~~
+    xcursorgen.c:280:25: warning: implicit conversion changes signedness:
+      'int' to 'XcursorDim' (aka 'unsigned int') [-Wsign-conversion]
+        image->size = list->size;
+                    ~ ~~~~~~^~~~
+    xcursorgen.c:281:25: warning: implicit conversion changes signedness:
+      'int' to 'XcursorDim' (aka 'unsigned int') [-Wsign-conversion]
+        image->xhot = list->xhot;
+                    ~ ~~~~~~^~~~
+    xcursorgen.c:282:25: warning: implicit conversion changes signedness:
+      'int' to 'XcursorDim' (aka 'unsigned int') [-Wsign-conversion]
+        image->yhot = list->yhot;
+                    ~ ~~~~~~^~~~
+    xcursorgen.c:283:26: warning: implicit conversion changes signedness:
+      'int' to 'XcursorUInt' (aka 'unsigned int') [-Wsign-conversion]
+        image->delay = list->delay;
+                     ~ ~~~~~~^~~~~
+    xcursorgen.c:364:35: warning: implicit conversion changes signedness:
+      'unsigned int' to 'int' [-Wsign-conversion]
+                .height             = height,
+                                      ^~~~~~
+    xcursorgen.c:363:24: warning: implicit conversion changes signedness:
+      'unsigned int' to 'int' [-Wsign-conversion]
+                .width              = width,
+                                      ^~~~~
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a5340b685b0ffc19793956a97a03d47e6f9076f4
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Nov 12 12:09:30 2022 -0800
+
+    Handle -Wimplicit-int-conversion warnings from clang
+    
+    xcursorgen.c:166:19: warning: implicit conversion loses integer precision:
+      'unsigned int' to 'unsigned char' [-Wimplicit-int-conversion]
+            red     = div_255((unsigned) red * (unsigned) alpha);
+                    ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    xcursorgen.c:167:19: warning: implicit conversion loses integer precision:
+      'unsigned int' to 'unsigned char' [-Wimplicit-int-conversion]
+            green   = div_255((unsigned) green * (unsigned) alpha);
+                    ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    xcursorgen.c:168:19: warning: implicit conversion loses integer precision:
+      'unsigned int' to 'unsigned char' [-Wimplicit-int-conversion]
+            blue    = div_255((unsigned) blue * (unsigned) alpha);
+                    ~ ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b8058f42a84f4930c074860bec5854c4ff818463
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Nov 12 12:06:50 2022 -0800
+
+    premultiply_data(): Mark png argument unused
+    
+    Clears clang warning:
+    xcursorgen.c:152:30: warning: unused parameter 'png' [-Wunused-parameter]
+    premultiply_data(png_structp png, png_row_infop row_info, png_bytep data)
+                                 ^
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 80b0b8c0a839b45a261d32b1cd1152257e16aa10
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Jul 28 17:30:21 2022 -0700
+
+    gitlab CI: stop requiring Signed-off-by in commits
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a2c6cd5a624b3c37cbc5881fc5b2b267bb4b31bb
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Dec 4 11:31:54 2021 -0800
+
+    Build xz tarballs instead of bzip2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit c96682a10a87e03b9bf33cda88484794fb41541a
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Dec 4 11:31:52 2021 -0800
+
+    gitlab CI: add a basic build test
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
 commit 291d9a052aec0ad4a315c09a9af8b451c94ed57a
 Author: Alan Coopersmith <alan.coopersmith@oracle.com>
 Date:   Sun Jan 6 15:17:17 2019 -0800
@@ -591,7 +702,7 @@ Date:   Wed Jul 6 05:35:51 2005 +0000
     Add xcursorgen build system.
 
 commit a750fa933a7d54c971badb401a23fcd020da315b
-Author: Kristian Høgsberg <krh@redhat.com>
+Author: Kristian Høgsberg  <krh@redhat.com>
 Date:   Fri Dec 3 22:21:22 2004 +0000
 
     Check malloc return values.
