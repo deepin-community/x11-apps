@@ -168,6 +168,8 @@ InitFixedTraps(XParms xp, Parms p, int64_t reps)
 	break;
     }
     maskFormat = XRenderFindStandardFormat (xp->d, std_fmt);
+    if (!maskFormat)
+        return 0;
     
     maskPixmap = XCreatePixmap (xp->d, xp->w, WIDTH, HEIGHT, depth);
 

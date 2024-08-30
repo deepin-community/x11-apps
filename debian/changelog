@@ -1,3 +1,10 @@
+x11-apps (7.7+11deepin1) unstable; urgency=medium
+
+  * x11perf: Skip trapezoids for unsupported XRender formats.
+    https://gitlab.freedesktop.org/xorg/test/x11perf/-/commit/74b90ae3c226295a6ff196b71273983da3e1a70e
+
+ -- Tianyu Chen <sweetyfish@deepin.org>  Fri, 30 Aug 2024 17:08:58 +0800
+
 x11-apps (7.7+11) unstable; urgency=medium
 
   [ Pino Toscano ]
