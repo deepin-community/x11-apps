@@ -1,3 +1,9 @@
+x11-apps (7.7+11deepin2) unstable; urgency=medium
+
+  * perf: Fix unixbench2d text test errors and improve text test performance
+
+ -- niecheng <niecheng1@uniontech.com>  Wed, 24 Dec 2025 11:04:42 +0800
+
 x11-apps (7.7+11deepin1) unstable; urgency=medium
 
   * x11perf: Skip trapezoids for unsupported XRender formats.
